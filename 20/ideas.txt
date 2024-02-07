@@ -1,0 +1,7 @@
+* compile the behavior of the network down to machine code
+* drawing the input as a graph showed four big subgraphs with a single incoming and a
+  single outgoing edge
+    - we can represent them as state sub-state-machines
+    - maybe simulate them in parallel? though that alone wouldn't help
+* the answer is bigger than 2**38 which is pretty fucking crazy.
+    - no "step-by-step" solution will be fast enough so we gotta take some shortcuts
