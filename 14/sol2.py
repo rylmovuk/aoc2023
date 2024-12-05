@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# pyright: basic
 
 import sys, os, re
 import numpy as np
@@ -48,14 +49,36 @@ def cycle(grid):
 def solve(grid):
     h, w = grid.shape
 
-    for i in range(1_000_000_000):
+    seen = dict()
+    cycle_found = False
+
+    i = 0
+
+    limit = 1_000_000_000
+
+    while i < limit:
         if i > 8 and (i & (i-1)) == 0:
-            print(f'processing {i} ({i/10_000_000:3f}%)...')
+            print(f'processing {i} ({i/limit:3f}%)...')
         # old = np.copy(grid)
         cycle(grid)
+
+        grid_bytes = grid.tobytes()
+        if not cycle_found:
+            if old_i := seen.get(grid_bytes):
+                cycle_found = True
+                cycle_len = i - old_i
+                print(f'Cycle! {old_i} + k * {cycle_len}')
+                i += (limit - i) // cycle_len * cycle_len
+                print(f'Now at {i = }')
+            else:
+                seen[grid_bytes] = i
+
+            
+
         #if np.all(old == grid):
         #    print(f'all the same at {i}')
         #    break
+        i += 1
     
     print_grid(grid)
 
