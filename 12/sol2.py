@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# pyright: basic
+
 import sys, os, re
 import numpy as np
 from itertools import combinations
@@ -10,9 +12,9 @@ def parse(file):
     res = [ (conf, [ int(c) for c in counts.split(',') ]) for conf, counts in res]
     return res
 
-def solve_one(conf, counts):
+def solve_one(conf, counts) -> int:
 
-    def rec(i, counts):
+    def rec(i, counts) -> int:
         if i == len(conf):
             return (len(counts) == 0 or counts == [0])
         match conf[i]:
@@ -35,13 +37,14 @@ def solve_one(conf, counts):
                     counts[0] -= 1
                     res += rec(i+1, counts)
                 return res
+        raise Exception('bad input')
 
     return rec(0, counts)
 
 
 def solve(data):
     unfolded = ( ("?".join([conf] * 5), counts * 5) for conf, counts in data )
-    return sum( solve_one(*entry) for entry in unfolded )
+    return sum( print(i) or solve_one(*entry) for i, entry in enumerate(unfolded) )
 
 
 def main():

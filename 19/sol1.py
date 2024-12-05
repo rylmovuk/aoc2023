@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+# pyright: basic 
 import sys, os, re
 import numpy as np
 from collections import namedtuple

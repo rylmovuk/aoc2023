@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# pyright: basic
 import sys, re
 from itertools import cycle, count
 from sympy.ntheory.modular import crt
@@ -13,19 +13,23 @@ def parse_file(f):
     nodes = { node: (left, right) for node, left, right in data }
     return instructions, nodes
 
-def find_cycle(insts, nodes, start_node, start_i=0):
-    seen = { (start_node, start_i % len(insts)) }
+def find_cycle(insts, nodes, start_node, start_i=0) -> tuple[str, int, int]:
+    seen = {} # first node will be added automatically
     for u, n in follow(insts, nodes, start_node, start_i):
         i = n % len(insts)
-        if (u, i) in seen:
-            return (u, i, n)
-        seen.add((u, i))
+        if start_n := seen.get((u, i)):
+            return (u, start_n, n)
+        seen[(u, i)] = n
+    else:
+        raise Exception('never')
 
-def follow(insts, nodes, cur, start_i=0):
-    for n in count(start_i):
+# yields (current node, n := instructions executed)
+# (n % len(insts)) gives index of NEXT instruction that will be executed
+def follow(insts, nodes, cur, start_n=0):
+    for n in count(start_n):
+        yield cur, n
         i = n % len(insts)
         cur = nodes[cur][insts[i] == 'R']
-        yield cur, n
         
 
 def solve(instructions, nodes):
@@ -37,9 +41,10 @@ def solve(instructions, nodes):
     print(zs)
     cycles = [ find_cycle(instructions, nodes, v, n) for v, n in zs ]
     print(cycles)
-    m = [ e - s for s, e in zip((s for _, s in zs), (e for _,_,e in cycles)) ]
-    print(m)
-    v = [ s % m for (_, s), m in zip(zs, m) ]
+    m = [ e - s for _, s, e in cycles ]
+    print(f'{m=}')
+    v = [ (s - 1) % m for (_, s), m in zip(zs, m) ]
+    print(f'{v=}')
     return crt(m, v)
 
     for n, instr in zip(count(1), cycle(instructions)):
@@ -50,11 +55,14 @@ def solve(instructions, nodes):
         if all(n[-1] == 'Z' for n in cur):
             return n
     
-def main():
-    try:
-        file = open(sys.argv[1])
-    except IndexError:
-        file = sys.stdin
+def main(in_file=None):
+    if in_file:
+        file = open(in_file)
+    else:
+        try:
+            file = open(sys.argv[1])
+        except IndexError:
+            file = sys.stdin
 
     data = parse_file(file)
     sol = solve(*data)

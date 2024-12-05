@@ -52,7 +52,7 @@ const Network = struct {
 
     pub const Pulse = struct { from: Node.Id, to: Node.Id, val: bool };
 
-    pub fn init(ally: std.mem.Allocator, input: []const u8) !Network {
+    pub fn initFromString(ally: std.mem.Allocator, input: []const u8) !Network {
         var net: Network = .{
             .allocator = ally,
             .inputs_queue = .{ .items = try ally.alloc(Pulse, max_queue_size) },
@@ -271,59 +271,131 @@ fn getInputFile() !std.fs.File {
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    // cannot defer :'(
+    defer std.debug.assert(gpa.deinit() == .ok);
     var arena = std.heap.ArenaAllocator.init(gpa.allocator());
+    defer arena.deinit();
     const ally = arena.allocator();
 
     const file = try getInputFile();
     const max_file_size = 1024 * 1024;
     const input = try file.reader().readAllAlloc(ally, max_file_size);
 
-    var net = try Network.init(ally, input);
+    var net = try Network.initFromString(ally, input);
 
-    var presses: u64 = 0;
-    var saved_state = .{ .gpa = &gpa, .arena = &arena, .presses = &presses };
-    const aux = struct {
-        fn finish(state: *@TypeOf(saved_state)) !void {
-            defer state.arena.deinit();
-            defer std.debug.assert(state.gpa.deinit() == .ok);
+    // ------- naive approach -------
+    //
+    // // ~~ must remove `defers` above because this is a horrible hacky solution
+    //
+    // var presses: u64 = 0;
+    // var saved_state = .{ .gpa = &gpa, .arena = &arena, .presses = &presses };
+    // const aux = struct {
+    //     fn finish(state: *@TypeOf(saved_state)) !void {
+    //         defer state.arena.deinit();
+    //         defer std.debug.assert(state.gpa.deinit() == .ok);
+    //
+    //         const stdout_file = std.io.getStdOut().writer();
+    //         var bw = std.io.bufferedWriter(stdout_file);
+    //         const stdout = bw.writer();
+    //
+    //         try stdout.print("Solution for part 2: {d}", .{state.presses.*});
+    //         try bw.flush();
+    //     }
+    //     pub fn callback(ctx: *anyopaque) noreturn {
+    //         const state = @as(*@TypeOf(saved_state), @alignCast(@ptrCast(ctx)));
+    //         finish(state) catch |err| {
+    //             std.log.err("{s}", .{@errorName(err)});
+    //             if (@errorReturnTrace()) |trace| {
+    //                 std.debug.dumpStackTrace(trace.*);
+    //             }
+    //             std.os.exit(1);
+    //         };
+    //
+    //         std.os.exit(0);
+    //     }
+    // };
 
-            const stdout_file = std.io.getStdOut().writer();
-            var bw = std.io.bufferedWriter(stdout_file);
-            const stdout = bw.writer();
+    // const rx_node = net.getNode(try net.getOrCreateNodeId("rx"));
+    // rx_node.state.rx_callback = .{ .ctx = &saved_state, .cb = aux.callback };
+    //
+    // // const stderr = std.io.getStdErr();
+    // var lim: u64 = 1 << 0;
+    // while (true) {
+    //     try net.button();
+    //     presses += 1;
+    //     if (presses == lim) {
+    //         lim <<= 1;
+    //         std.debug.print("{d} ... \n", .{presses});
+    //         // stderr.flush() catch {};
+    //     }
+    //     try net.propagatePulses();
+    // }
 
-            try stdout.print("Solution for part 2: {d}", .{state.presses.*});
-            try bw.flush();
+    // By visualizing the graph we discover that there are four tightly connected subgraphs
+    // that each send *one* output to the conjunction node `&zr` that is right before the
+    // output node `rx`.
+    //
+    // Thus we split the network into smaller ones and try to detect cyclic behavior.
+
+    const input_names: [4][]const u8 = .{ "lq", "jn", "mn", "hd" };
+    const output_names: [4][]const u8 = .{ "sz", "cm", "xf", "gc" };
+    var presses: [4]u64 = .{0} ** 4;
+
+    const btn_id = 0;
+    const btn_node = net.getNode(btn_id);
+    try btn_node.outputs.resize(1);
+
+    for (input_names, output_names, &presses) |in_name, out_name, *prs| {
+        const in_id = net.name_map.get(in_name) orelse return error.BadAssumptions;
+        btn_node.outputs.set(0, in_id);
+
+        const out_id = net.name_map.get(out_name) orelse return error.BadAssumptions;
+        const out_node = net.getNode(out_id);
+        out_node.setKind(.rx);
+
+        var count: u64 = 0;
+        var state = .{ .prs = prs, .cur = &count };
+
+        const callback_fn = struct {
+            fn FN(ctx: *anyopaque) void {
+                const s: *@TypeOf(state) = @alignCast(@ptrCast(ctx));
+                s.prs.* = s.cur.*;
+            }
+        }.FN;
+        out_node.state.rx_callback = .{ .ctx = &state, .cb = callback_fn };
+
+        while (prs.* == 0) {
+            try net.button();
+            count += 1;
+            try net.propagatePulses();
         }
-        pub fn callback(ctx: *anyopaque) noreturn {
-            const state = @as(*@TypeOf(saved_state), @alignCast(@ptrCast(ctx)));
-            finish(state) catch |err| {
-                std.log.err("{s}", .{@errorName(err)});
-                if (@errorReturnTrace()) |trace| {
-                    std.debug.dumpStackTrace(trace.*);
-                }
-                std.os.exit(1);
-            };
-
-            std.os.exit(0);
-        }
-    };
-
-    const rx_node = net.getNode(try net.getOrCreateNodeId("rx"));
-    rx_node.state.rx_callback = .{ .ctx = &saved_state, .cb = aux.callback };
-
-    // const stderr = std.io.getStdErr();
-    var lim: u64 = 1 << 0;
-    while (true) {
-        try net.button();
-        presses += 1;
-        if (presses == lim) {
-            lim <<= 1;
-            std.debug.print("{d} ... \n", .{presses});
-            // stderr.flush() catch {};
-        }
-        try net.propagatePulses();
     }
+
+    const stdout_file = std.io.getStdOut().writer();
+    var bw = std.io.bufferedWriter(stdout_file);
+    const stdout = bw.writer();
+
+    var final_lcm: u64 = 1;
+    for (presses) |p| {
+        try stdout.print("presses: {d}\n", .{p});
+        final_lcm = lcm(final_lcm, p);
+    }
+    try stdout.print("Solution for part 2: {d}\n", .{final_lcm});
+    try bw.flush();
+}
+
+fn gcd(a_arg: u64, b_arg: u64) u64 {
+    var a = a_arg;
+    var b = b_arg;
+    while (b != 0) {
+        const t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+fn lcm(a: u64, b: u64) u64 {
+    return a * (b / gcd(a, b));
 }
 
 test "parsing and dumping network is coherent" {
@@ -336,7 +408,7 @@ test "parsing and dumping network is coherent" {
     var strs_arena = std.heap.ArenaAllocator.init(ally);
     defer strs_arena.deinit();
     const are_ally = strs_arena.allocator();
-    var net = try Network.init(ally, test_data);
+    var net = try Network.initFromString(ally, test_data);
     defer net.deinit();
     var node_reprs = StrSet.init(are_ally);
     for (1..net.nodes.len) |id| {
@@ -378,7 +450,7 @@ test "rx callback works" {
         \\
     ;
 
-    var net = try Network.init(ally, test_data);
+    var net = try Network.initFromString(ally, test_data);
     defer net.deinit();
 
     const rx_id = net.name_map.get("rx").?;
@@ -403,7 +475,7 @@ test "part 1 is correct" {
     const test_data = try file.reader().readAllAlloc(ally, 1024 * 1024);
     defer ally.free(test_data);
 
-    var net = try Network.init(ally, test_data);
+    var net = try Network.initFromString(ally, test_data);
     defer net.deinit();
 
     for (0..1000) |_| {
