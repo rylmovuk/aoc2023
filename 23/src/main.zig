@@ -151,13 +151,117 @@ const Solver = struct {
     fn solve2(self: Self, ally: Alloc) !u32 {
         const solv = Self{ .grid = try self.grid.clone(ally) };
         defer ally.free(solv.grid.data);
-        for (solv.grid.data) |*c| {
-            switch (c.*) {
-                '^', '>', 'v', '<' => c.* = '.',
-                else => {},
+        // for (solv.grid.data) |*c| {
+        //     switch (c.*) {
+        //         '^', '>', 'v', '<' => c.* = '.',
+        //         else => {},
+        //     }
+        // }
+        const start_x = for (0..self.grid.w) |xi| {
+            const x: CoordInt = @intCast(xi);
+            if (self.grid.at(x, 0) == '.')
+                break x;
+        } else return error.InvalidInput;
+
+        const Edge = struct {
+            start: Coord2,
+            end: Coord2,
+            len: u16,
+        };
+        var edges = std.ArrayList(Edge).init(ally);
+        defer edges.deinit();
+
+        var stk = std.ArrayList(Edge).init(ally);
+        defer stk.deinit();
+        const start_co = .{ .x = start_x, .y = 0 };
+        try stk.append(.{
+            .start = start_co,
+            .end = start_co,
+            .len = 0,
+        });
+
+        while (stk.popOrNull()) |cur_edge| {
+            var cur = cur_edge;
+            if (!isEmpty(solv.grid.at(cur.end.x, cur.end.y)))
+                continue;
+
+            while (true) {
+                solv.grid.setAt(cur.end.x, cur.end.y, 'O');
+                const neigh = solv.emptyNeighbors(cur.end.x, cur.end.y).constSlice();
+                if (neigh.len == 1) {
+                    cur.end = neigh[0];
+                    cur.len += 1;
+                } else {
+                    for (neigh) |n_co| {
+                        try stk.append(.{ .start = cur.end, .end = n_co, .len = 1 });
+                    }
+                    break;
+                }
+            }
+
+            {
+                for (0..solv.grid.h) |y| {
+                    for (0..solv.grid.w) |x| {
+                        const char = solv.grid.at(@intCast(x), @intCast(y));
+                        if (x == cur.start.x and y == cur.start.y) {
+                            std.debug.print("\x1b[31mSS\x1b[0m", .{});
+                        } else if (x == cur.end.x and y == cur.end.y) {
+                            std.debug.print("\x1b[93mEE\x1b[0m", .{});
+                        } else switch (char) {
+                            '#' => std.debug.print("\x1b[90m##\x1b[0m", .{}),
+                            else => std.debug.print("{0c}{0c}", .{char}),
+                        }
+                    }
+                    std.debug.print("\n", .{});
+                }
+            }
+            try std.io.getStdIn().reader().skipUntilDelimiterOrEof('\n');
+            try edges.append(cur);
+        }
+
+        for (edges.items) |edge| {
+            std.debug.print("({:>3},{:>3}) -- {:>3} --> ({:>3},{:>3})\n", .{ edge.start.x, edge.start.y, edge.len, edge.end.x, edge.end.y });
+        }
+
+        var nodes = std.AutoHashMap(Coord2, std.BoundedArray(struct { end: Coord2, len: u16 }, 4)).init(ally);
+        defer nodes.deinit();
+        for (edges.items) |edge| {
+            const s_node = try nodes.getOrPutValue(edge.start, .{});
+            s_node.value_ptr.appendAssumeCapacity(.{ .end = edge.end, .len = edge.len });
+            const e_node = try nodes.getOrPutValue(edge.end, .{});
+            e_node.value_ptr.appendAssumeCapacity(.{ .end = edge.start, .len = edge.len });
+        }
+
+        var seen = std.AutoHashMap(Coord2, void).init(ally);
+        defer seen.deinit();
+
+        var rec_stk = std.ArrayList(struct { node: Coord2, dist: u32 }).init(ally);
+        defer rec_stk.deinit();
+        try rec_stk.append(.{ .node = start_co, .dist = 0 });
+        var max_dist: u32 = 0;
+
+        while (rec_stk.getLastOrNull()) |entry| {
+            if (entry.node.y == self.grid.h - 1) {
+                std.debug.print("({},{})~~~ candidate {}\n", .{ entry.node.x, entry.node.y, entry.dist });
+                max_dist = @max(max_dist, entry.dist);
+                _ = rec_stk.pop();
+            } else if (seen.get(entry.node) != null) {
+                std.debug.print("(..) -> ", .{});
+                _ = seen.remove(entry.node);
+                _ = rec_stk.pop();
+            } else {
+                try seen.put(entry.node, {});
+                std.debug.print("({},{})[{}]-> ", .{ entry.node.x, entry.node.y, entry.dist });
+                const adj_edges = nodes.get(entry.node).?;
+                for (adj_edges.slice()) |e| {
+                    const neigh = e.end;
+                    if (seen.get(neigh) == null)
+                        try rec_stk.append(.{ .node = neigh, .dist = entry.dist + e.len });
+                }
             }
         }
-        return solv.solve1(ally);
+
+        return max_dist;
     }
 };
 
