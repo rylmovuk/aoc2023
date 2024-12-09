@@ -78,6 +78,40 @@ const Solver = struct {
         return res;
     }
 
+    fn neighbors(self: Self, x: CoordInt, y: CoordInt) std.BoundedArray(Coord2, 4) {
+        var res = std.BoundedArray(Coord2, 4){};
+        if (x > 0) {
+            res.appendAssumeCapacity(.{ .x = x - 1, .y = y });
+        }
+        if (y > 0) {
+            res.appendAssumeCapacity(.{ .x = x, .y = y - 1 });
+        }
+        if (x + 1 < self.grid.w) {
+            res.appendAssumeCapacity(.{ .x = x + 1, .y = y });
+        }
+        if (y + 1 < self.grid.h) {
+            res.appendAssumeCapacity(.{ .x = x, .y = y + 1 });
+        }
+        return res;
+    }
+
+    fn followCorridor(self: Self, co_a: Coord2, start_co: Coord2) struct { last: Coord2, end: Coord2, len: u16 } {
+        var co = co_a;
+        var last_co = start_co;
+        var len: u16 = 1;
+        while (true) {
+            const neigh = self.emptyNeighbors(co.x, co.y).slice();
+            if (neigh.len != 2) {
+                break;
+            }
+            const t = if (std.meta.eql(neigh[0], last_co)) neigh[1] else neigh[0];
+            last_co = co;
+            co = t;
+            len += 1;
+        }
+        return .{ .last = last_co, .end = co, .len = len };
+    }
+
     pub fn solve1(self: Self, ally: Alloc) !u32 {
         const start_x = for (0..self.grid.w) |xi| {
             const x: u16 = @intCast(xi);
@@ -149,87 +183,44 @@ const Solver = struct {
     }
 
     fn solve2(self: Self, ally: Alloc) !u32 {
-        const solv = Self{ .grid = try self.grid.clone(ally) };
-        defer ally.free(solv.grid.data);
-        // for (solv.grid.data) |*c| {
-        //     switch (c.*) {
-        //         '^', '>', 'v', '<' => c.* = '.',
-        //         else => {},
-        //     }
-        // }
         const start_x = for (0..self.grid.w) |xi| {
             const x: CoordInt = @intCast(xi);
             if (self.grid.at(x, 0) == '.')
                 break x;
         } else return error.InvalidInput;
 
-        const Edge = struct {
-            start: Coord2,
-            end: Coord2,
-            len: u16,
-        };
-        var edges = std.ArrayList(Edge).init(ally);
-        defer edges.deinit();
-
-        var stk = std.ArrayList(Edge).init(ally);
-        defer stk.deinit();
         const start_co = .{ .x = start_x, .y = 0 };
-        try stk.append(.{
-            .start = start_co,
-            .end = start_co,
-            .len = 0,
-        });
-
-        while (stk.popOrNull()) |cur_edge| {
-            var cur = cur_edge;
-            if (!isEmpty(solv.grid.at(cur.end.x, cur.end.y)))
-                continue;
-
-            while (true) {
-                solv.grid.setAt(cur.end.x, cur.end.y, 'O');
-                const neigh = solv.emptyNeighbors(cur.end.x, cur.end.y).constSlice();
-                if (neigh.len == 1) {
-                    cur.end = neigh[0];
-                    cur.len += 1;
-                } else {
-                    for (neigh) |n_co| {
-                        try stk.append(.{ .start = cur.end, .end = n_co, .len = 1 });
-                    }
-                    break;
-                }
-            }
-
-            {
-                for (0..solv.grid.h) |y| {
-                    for (0..solv.grid.w) |x| {
-                        const char = solv.grid.at(@intCast(x), @intCast(y));
-                        if (x == cur.start.x and y == cur.start.y) {
-                            std.debug.print("\x1b[31mSS\x1b[0m", .{});
-                        } else if (x == cur.end.x and y == cur.end.y) {
-                            std.debug.print("\x1b[93mEE\x1b[0m", .{});
-                        } else switch (char) {
-                            '#' => std.debug.print("\x1b[90m##\x1b[0m", .{}),
-                            else => std.debug.print("{0c}{0c}", .{char}),
-                        }
-                    }
-                    std.debug.print("\n", .{});
-                }
-            }
-            try std.io.getStdIn().reader().skipUntilDelimiterOrEof('\n');
-            try edges.append(cur);
-        }
-
-        for (edges.items) |edge| {
-            std.debug.print("({:>3},{:>3}) -- {:>3} --> ({:>3},{:>3})\n", .{ edge.start.x, edge.start.y, edge.len, edge.end.x, edge.end.y });
-        }
 
         var nodes = std.AutoHashMap(Coord2, std.BoundedArray(struct { end: Coord2, len: u16 }, 4)).init(ally);
         defer nodes.deinit();
-        for (edges.items) |edge| {
-            const s_node = try nodes.getOrPutValue(edge.start, .{});
-            s_node.value_ptr.appendAssumeCapacity(.{ .end = edge.end, .len = edge.len });
-            const e_node = try nodes.getOrPutValue(edge.end, .{});
-            e_node.value_ptr.appendAssumeCapacity(.{ .end = edge.start, .len = edge.len });
+
+        // find all *nodes*: either dead ends (1 neighbor) or forks (>2 neighbors).
+        // corridors (=2 neighbors) can be compressed
+        for (0..self.grid.h) |y_usz| {
+            for (0..self.grid.w) |x_usz| {
+                const x: CoordInt = @intCast(x_usz);
+                const y: CoordInt = @intCast(y_usz);
+                if (isEmpty(self.grid.at(x, y))) {
+                    const neigh = self.emptyNeighbors(x, y).constSlice();
+                    if (neigh.len != 2) {
+                        try nodes.put(.{ .x = x, .y = y }, .{});
+                    }
+                }
+            }
+        }
+
+        // connect the nodes together. note that we basically treat this as a directed graph,
+        // i.e. every edge is duplicated (once as A->B and once as B->A)
+        var node_it = nodes.iterator();
+        while (node_it.next()) |node_entry| {
+            const node = node_entry.key_ptr.*;
+            const node_edges = node_entry.value_ptr;
+            const neigh = self.emptyNeighbors(node.x, node.y).slice();
+            for (neigh) |n_co| {
+                const follow = self.followCorridor(n_co, node);
+                try node_edges.append(.{ .end = follow.end, .len = follow.len });
+                std.debug.print("x{:0>3}y{:0>3} -- x{:0>3}y{:0>3} [weight={}]\n", .{ node.x, node.y, follow.end.x, follow.end.y, follow.len });
+            }
         }
 
         var seen = std.AutoHashMap(Coord2, void).init(ally);
@@ -242,16 +233,16 @@ const Solver = struct {
 
         while (rec_stk.getLastOrNull()) |entry| {
             if (entry.node.y == self.grid.h - 1) {
-                std.debug.print("({},{})~~~ candidate {}\n", .{ entry.node.x, entry.node.y, entry.dist });
+                // std.debug.print("({},{})~~~ candidate {}\n", .{ entry.node.x, entry.node.y, entry.dist });
                 max_dist = @max(max_dist, entry.dist);
                 _ = rec_stk.pop();
             } else if (seen.get(entry.node) != null) {
-                std.debug.print("(..) -> ", .{});
+                // std.debug.print("(..) -> ", .{});
                 _ = seen.remove(entry.node);
                 _ = rec_stk.pop();
             } else {
                 try seen.put(entry.node, {});
-                std.debug.print("({},{})[{}]-> ", .{ entry.node.x, entry.node.y, entry.dist });
+                // std.debug.print("({},{})[{}]-> ", .{ entry.node.x, entry.node.y, entry.dist });
                 const adj_edges = nodes.get(entry.node).?;
                 for (adj_edges.slice()) |e| {
                     const neigh = e.end;
@@ -262,6 +253,23 @@ const Solver = struct {
         }
 
         return max_dist;
+    }
+
+    fn debugShow(self: Self, start: Coord2, end: Coord2) void {
+        for (0..self.grid.h) |y| {
+            for (0..self.grid.w) |x| {
+                const char = self.grid.at(@intCast(x), @intCast(y));
+                if (x == start.x and y == start.y) {
+                    std.debug.print("\x1b[31mSS\x1b[0m", .{});
+                } else if (x == end.x and y == end.y) {
+                    std.debug.print("\x1b[93mEE\x1b[0m", .{});
+                } else switch (char) {
+                    '#' => std.debug.print("\x1b[90m##\x1b[0m", .{}),
+                    else => std.debug.print("{0c}{0c}", .{char}),
+                }
+            }
+            std.debug.print("\n", .{});
+        }
     }
 };
 
