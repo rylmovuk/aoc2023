@@ -1,0 +1,187 @@
+334/1: h1, h2, h3, * = open('input')
+334/2: h1, h2, h3, *_ = open('input')
+334/3: h1
+334/4: h1, h2, h3 = map(lambda r: map(lambda p: list(map(int, p.strip().split(', '))), r.split('@')), (h1,h2,h3))
+334/5: h1
+334/6: h1, h2, h3 = map(list, (h1,h2,h3))
+334/7: h1
+334/8: h2
+334/9: h3
+334/10: x1, v1, x2, v2, x3, v3 = h1,h2,h3
+334/11: x1, v1, x2, v2, x3, v3 = *h1,*h2,*h3
+334/12: p1 = x2-x1
+334/13: def mapvals(lhs, func): exec(f'{lhs} = map({func}, ({lhs})')
+334/14: import numpy as nf mapvals('x1,v1,x2,v2,x3,v3', 'np.array')
+334/15: import numpy as np ( mapvals('x1,v1,x2,v2,x3,v3', 'np.array')
+334/16: import numpy as np; mapvals('x1,v1,x2,v2,x3,v3', 'np.array')
+334/17: def mapvals(lhs, func): exec(f'{lhs} = map({func}, ({lhs}))')
+334/18: mapvals('x1,v1,x2,v2,x3,v3', 'np.array')
+334/19: x1
+334/20: v1
+334/21: global x1,v1
+334/22: def mapvals(lhs, func): exec(f'global {lhs}\n{lhs} = map({func}, ({lhs}))')
+334/23: mapvals('x1,v1,x2,v2,x3,v3', 'np.array')
+334/24: x1
+334/25: v1
+334/26: p1 = x2-x1
+334/27: v1 = v2-v1
+334/28: p2 = x3-x1
+334/29: x1, v1, x2, v2, x3, v3 = *h1,*h2,*h3
+334/30: mapvals('x1,v1,x2,v2,x3,v3', 'np.array')
+334/31: p1 = x2-x1
+334/32: u1 = v2-v1
+334/33: p2 = x3-x1
+334/34: u2 = v3-v1
+334/35: # p1 + t1 * u1
+334/36: # p2 + t2 * u2
+334/37: # (p1 + t1 * u1) .x. (p2 + t2 * u2) == 0
+334/38: # p1 x p2  +  t1* (p2 x u1) + t2* (p1 x u2) + t1*t2* (u1 x u2) == 0
+334/39: # (p1 x p2) · u2    + t1 * (p2 x u1) · u2 + t2 * (p1 x u2) · u2 + t1 * t2 * (u1 x u2) · u2 == 0
+334/40: #                                           ~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~  --> =0
+334/41: # (p1 x p2) · u2    + t1 * (p2 x u1) · u2 == 0
+334/42: # t1 = - ( (p1 x p2) · u2 ) / (p2 x u1) · u2
+334/43: # t2 = - ( (p1 x p2) · u1 ) / (p2 x u2) · u1
+334/44: t1 = - np.dot( np.cross(p1, p2), u2 ) / np.dot( np.cross(p2, u1), u2)
+334/45: t2 = - np.dot( np.cross(p1, p2), u1 ) / np.dot( np.cross(p2, u2), u1)
+334/46: c1 = x2 + t1 * v2
+334/47: c1
+334/48: t1
+334/49: t2
+334/50: p1
+334/51: p2
+334/52: x2
+334/53: h2
+334/54: np.dot( np.cross(p1, p2), u2 )
+334/55: np.dot( np.cross(p2, u1), u2)
+334/56: divmod(3365042241417827470, 806399897481916250)
+334/57: t1 = - np.dot( np.cross(p1, p2), u2 ) / np.dot( np.cross(u1, p2), u2)
+334/58: t1
+334/59: data = [ tuple(map(lambda x: list(map(int, x.strip().split(', '))), r.split('@'))) for r in open('input') ]
+334/60: data
+334/61: xvels = { vx for _, (vx, _, _) in data }
+334/62: yvels = { vy for _, (_, vy, _) in data }
+334/63: zvels = { vz for _, (_, _, vz) in data }
+334/64: xvels
+334/65: [ (l := [ s for s in data if s[1][0] == vx ]) for vx in xvels if len(l) > 1 ]
+334/66: [ l for l in ([ s for s in data if s[1][0] == vx ]) for vx in xvels) if len(l) > 1 ]
+334/67: [ l for l in ([ s for s in data if s[1][0] == vx ] for vx in xvels) if len(l) > 1 ]
+334/68: import sympy as sy
+334/69: sy.factor(120)
+334/70: sy.factorint(120)
+334/71: import itertools as itt
+334/72: [ sy.factorint(x1-x0) for ((x0,_,_),_), ((x1,_,_),_) in (itt.combinations(r, 2) for r in _67) ]
+334/73: [ sy.factorint(x1-x0) for x0, x1 in (itt.combinations((x for (x,_,_),_ in r), 2) for r in _67 ) ]
+334/74: _67[0]
+334/75: [ sy.factorint(x1-x0) for x0, x1 in (itt.combinations((x for (x,_,_),_ in r), 2)for r in _67 ) ]
+334/76:
+[ sy.factorint(x1-x0)
+  for x0, x1 in (
+    itt.combinations((x for (x,_,_),_ in r), 2) 
+    for r in _67
+  )
+]
+334/77:
+[ list(xs)
+  for xs in (
+    itt.combinations((x for (x,_,_),_ in r), 2) 
+    for r in _67
+  )
+]
+334/78:
+[ 
+  [
+    sy.factorint(x1-x0)
+    for x0, x1 in itt.combinations(
+      (x for (x,_,_),_ in r),
+      2
+    )
+  ]
+  for r in _67
+]
+334/79: { vx: fct for vx, fct in zip(xvels, _78) }
+334/80: { vx: fct for vx, fct in zip((vx for _,(vx,_,_) in (g[0] for g in _67)), _78) }
+334/81: sy.divisors(120)
+334/82:
+[ 
+  [
+    sy.divisors(x1-x0)
+    for x0, x1 in itt.combinations(
+      (x for (x,_,_),_ in r),
+      2
+    )
+  ]
+  for r in _67
+]
+334/83: type(In)
+334/84: t = { vx: fct for vx, fct in zip((vx for _,(vx,_,_) in (g[0] for g in _67)), _82) }
+334/85: { vx: [','.join(dv) for dv in fct] for vx, fct in zip((vx for _,(vx,_,_) in (g[0] for g in _67)), _82) }
+334/86: { vx: [','.join(str(dv)) for dv in fct] for vx, fct in zip((vx for _,(vx,_,_) in (g[0] for g in _67)), _82) }
+334/87: { vx: [[','.join(str(dv)) for dv in f] for f in fct] for vx, fct in zip((vx for _,(vx,_,_) in (g[0] for g in _67)), _82) }
+334/88: { vx: [[','.join(str(dv) for dv in f) for f in fct] for vx, fct in zip((vx for _,(vx,_,_) in (g[0] for g in _67)), _82) }
+334/89: { vx: [','.join(str(dv) for dv in f) for f in fct] for vx, fct in zip((vx for _,(vx,_,_) in (g[0] for g in _67)), _82) }
+334/90: abs
+334/91: In[82]
+334/92: all( all(abs(63 - k) in f for f in v) for k, v in _82.items() )
+334/93: In[87]
+334/94: In[84]
+334/95: In[85]
+334/96: In[83]
+334/97: In[82]
+334/98: all( all(abs(63 - k) in f for f in v) for k, v in t.items() )
+334/99: next( (k, f) for k, v in t.items() for f in v if abs(63 - k) not in f )
+334/100: t[63]
+334/101: all( all(abs(63 - k) in f for f in v) for k, v in t.items() if k != 63)
+334/102: rvx = 63
+334/103: { vy: l for vy, l in ((vy, [ s for s in data if s[1][1] == vy ]) for vy in yvels) if len(l) > 1 }
+334/104: { vy: [sy.divisors(y1-y0)[:15] for y0, y1 in itt.combinations((r[0][1] for r in l), 2) ]  for vy, l in _103 }
+334/105: { vy: [sy.divisors(y1-y0)[:15] for y0, y1 in itt.combinations((r[0][1] for r in l), 2) ]  for vy, l in _103.items() }
+334/106: all( all(abs(104 + k) in f for f in v) for k, v in t.items() if k != -104)
+334/107: next( (k, f) for k, v in t.items() for f in v if abs(104 + k) not in f )
+334/108: all( all(abs(8 + k) in f for f in v) for k, v in t.items() if k != -8)
+334/109: all( all(abs(8 + k) in f for f in v) for k, v in t.items() if k != 8)
+334/110: all( all(abs(8 - k) in f for f in v) for k, v in t.items() if k != 8)
+334/111: all( all(abs(8 - k) in f for f in v) for k, v in t.items() if k != -8)
+334/112: { vy: [[d for d in sy.divisors(y1-y0) if d<1000] for y0, y1 in itt.combinations((r[0][1] for r in l), 2) ]  for vy, l in _103.items() }
+334/113: t[63]
+334/114: any(any(not l for l in v) for v in _112.values())
+334/115: 52 in _112
+334/116: 26 in _112
+334/117: -26 in _112
+334/118: _112[-26]
+334/119: all( all(abs(104 - k) in f for f in v) for k, v in t.items() if k != 104)
+334/120: next( (k, f) for k, v in t.items() for f in v if abs(104 - k) not in f )
+334/121: next( (k, f) for k, v in _112.items() for f in v if abs(104 - k) not in f )
+334/122: all( all(abs(104 - k) in f for f in v) for k, v in _112.items() if k != 104)
+334/123: _112[104]
+334/124: rvy = 104
+334/125: { vz: l for vz, l in ((vz, [ s for s in data if s[1][2] == vz ]) for vz in zvels) if len(l) > 1 }
+334/126: { vz: [[d for d in sy.divisors(z1-z0) if d<1000] for z0, z1 in itt.combinations((r[0][2] for r in l), 2) ]  for vz, l in _125.items() }
+334/127: all( all(abs(296 - k) in f for f in v) for k, v in _126.items() if k != 296)
+334/128: rvz = 296
+334/129: data[0]
+334/130: data[1]
+334/131: # xx0 + vv0*t == rxx + rvv*t
+334/132: # xx1 + vv1*u == rxx + rvv*u
+334/133: # xx0 - xx1 + vv0*t - vv1*u == rvv*(t-u)
+334/134: # (xx0 - rxx) + (vv0 - rvv)*t = 0
+334/135: # (xx1 - rxx) + (vv1 - rvv)*u = 0
+334/136:
+# (xx0 - xx1) + (vv0 - rvv)*t + (rvv - vv1)*u = 0
+xx0, vv0 = map(np.array, data[0])
+334/137: xx1, vv1 = map(np.array, data[1])
+334/138: xx0
+334/139: xx0.dtype
+334/140: rvv = np.array([rvx,rvy,rvz])
+334/141: np.linalg.solve(np.array([rvv - vv0, vv1 - rvv]).T, xx0-xx1)
+334/142: np.linalg.solve(np.array([rvv - vv0, vv1 - rvv]).T[:2], (xx0-xx1)[:2])
+334/143: int(_142[0])
+334/144: int(_142[0]) == _142[0]
+334/145: int(_142[1]) == _142[1]
+334/146: int(_142[1])
+334/147: f'{_142[1]:f}'
+334/148: t, u = _142
+334/149: t, u = map(int, _142)
+334/150: xx0 + (vv0 - rvv) * t
+334/151: xx1 + (vv1 - rvv) * u
+334/152: _150.sum()
+334/153: 229429688799267 + 217160931330282 + 133453231437025 == 580043851566574
